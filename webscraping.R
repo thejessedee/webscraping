@@ -25,6 +25,7 @@ data <- url_data %>%
 
 #Creating a data frame of the handles and other info 
 data <- data[3:443, 1:5]  
+data <- data[-c(92), ]
 
 #Rename variables 
 names(data) <- c("first.name", "last.name", "handle", "district", "party")
@@ -33,6 +34,9 @@ names(data) <- c("first.name", "last.name", "handle", "district", "party")
 data <- data %>%
   mutate(screen_name = gsub("@", "", handle)) 
 
+#Change Seth Moulton's screen name to appropriate one 
+data$screen_name[data$screen_name == 'teammoulton'] <- 'sethmoulton' 
+
 tweet_holder <- as.data.frame(NULL) 
 
 #This is the code to run through this. However, you will need to figure out 
@@ -40,27 +44,15 @@ tweet_holder <- as.data.frame(NULL)
 #you will need to start and stop this a couple of times to figure out
 #which ones are good and then break around those. 
 
+#Right now 92 (CharlieCrist) does not work... working on a fix for that 
 
-for(i in 1:80){
-  timeline <- get_timeline(data$screen_name[i], n=10) 
+for(i in 1:440){
+  timeline <- get_timeline(data$screen_name[i], n=100) 
   bound <- cbind(timeline, users_data(timeline)[, c("id", "id_str", "name", "screen_name")]) 
   tweet_holder <- rbind(tweet_holder, bound) 
   print(i) 
 }
 
-for(i in 181:360){
-  timeline <- get_timeline(data$screen_name[i], n=10) 
-  bound <- cbind(timeline, users_data(timeline)[, c("id", "id_str", "name", "screen_name")]) 
-  tweet_holder <- rbind(tweet_holder, bound) 
-  print(i) 
-}
-
-for(i in 361:442){
-  timeline <- get_timeline(data$screen_name[i], n=10) 
-  bound <- cbind(timeline, users_data(timeline)[, c("id", "id_str", "name", "screen_name")]) 
-  tweet_holder <- rbind(tweet_holder, bound) 
-  print(i) 
-}
 
 #Because this will take manyhours to do (tweet limits and such), you'll want to 
 #Keep your computer on and eventually save the file if you want to play with it later.
@@ -120,7 +112,6 @@ data_freq_matrix <- dfm_trim(data_freq_matrix,
 # Let's go back and create a DFM from this subset
 
 features <- textstat_frequency(data_freq_matrix, n=30)
-View(features)
 
 features$feature <- with(features, reorder(feature, -frequency))
 
@@ -167,7 +158,6 @@ rep_data_freq_matrix <- dfm_trim(rep_data_freq_matrix,
 # Let's go back and create a DFM from this subset
 
 rep_features <- textstat_frequency(rep_data_freq_matrix, n=30)
-View(rep_features)
 
 rep_features$feature <- with(rep_features, reorder(feature, -frequency))
 
@@ -213,7 +203,6 @@ dem_data_freq_matrix <- dfm_trim(dem_data_freq_matrix,
 # Let's go back and create a DFM from this subset
 
 dem_features <- textstat_frequency(dem_data_freq_matrix, n=30)
-View(dem_features)
 
 dem_features$feature <- with(dem_features, reorder(feature, -frequency))
 
