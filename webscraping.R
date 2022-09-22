@@ -9,6 +9,7 @@ library(quanteda.textplots) #for textplots
 library(quanteda.textstats) #for textstats 
 library(quanteda.sentiment) #for sentiment... but I don't think we actually use this yet 
 library(igraph)
+library(stm) 
 
 #First we need to go out and get the twitter handles for all US representatives 
 url_data <- "https://pressgallery.house.gov/member-data/members-official-twitter-handles" 
@@ -58,13 +59,13 @@ for(i in 1:440){
 #Keep your computer on and eventually save the file if you want to play with it later.
 #I usually save as a .csv file for ease of use later 
 
-save_as_csv(mtweet_holder, "/XXXXXXXXXX/tweets.csv", prepend_ids=TRUE, na = "", fileEncoding="UTF-8") 
+#save_as_csv(mtweet_holder, "/XXXXXXXXXX/tweets.csv", prepend_ids=TRUE, na = "", fileEncoding="UTF-8") 
 
 #Then when you come back to it, you can just load it up here and begin coding. 
 #Just be cognizant of the tweets you have (date, etc.) as they will change
 #as people tweet more and more... 
 
-useme <- read_csv("/users/jessededeyne/desktop/tweeties.csv") 
+#useme <- read_csv("/users/jessededeyne/desktop/tweeties.csv") 
 
 #I am going to do this analysis with a limited set of tweets, so be sure to change your
 #dataframe name as needed 
@@ -75,7 +76,8 @@ tweet_holder <- tweet_holder[-c(44:45)]
 
 merged_data <- left_join(tweet_holder, data, by= "screen_name") 
 
-#Creating a Corpus of tweets 
+
+#####Creating a Corpus of tweets for all tweets##### 
 useme <- merged_data 
 
 tweet_words <- corpus(useme)
@@ -107,7 +109,6 @@ data_freq_matrix <- dfm_trim(data_freq_matrix,
                              docfreq_type = "prop"
 ) 
 
-
 # Visualize frequency
 # Let's go back and create a DFM from this subset
 
@@ -120,8 +121,8 @@ ggplot(features, aes(x = feature, y = frequency)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
-
-#Now let's see how the different parties are talking 
+#####Now let's see how the different parties are talking##### 
+#Republicans
 rep_words <- subset(useme, party == "R")
 
 rep_tweet_words <- corpus(rep_words)
@@ -153,7 +154,6 @@ rep_data_freq_matrix <- dfm_trim(rep_data_freq_matrix,
                              docfreq_type = "prop"
 ) 
 
-
 # Visualize frequency
 # Let's go back and create a DFM from this subset
 
@@ -166,7 +166,7 @@ ggplot(rep_features, aes(x = feature, y = frequency)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
-#And now the democrats 
+#And now the Democrats 
 dem_words <- subset(useme, party == "D") 
 
 dem_tweet_words <- corpus(dem_words)
@@ -198,7 +198,6 @@ dem_data_freq_matrix <- dfm_trim(dem_data_freq_matrix,
                                  docfreq_type = "prop"
 ) 
 
-
 # Visualize frequency
 # Let's go back and create a DFM from this subset
 
@@ -209,5 +208,162 @@ dem_features$feature <- with(dem_features, reorder(feature, -frequency))
 ggplot(dem_features, aes(x = feature, y = frequency)) +
   geom_point() + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+#####Let's do some topic modeling now... #####
+#Let's start fresh with our data set 
+
+
+#We need to remove columns that have all the same answer. 
+#Keep those columns you need. 
+merged_data1 <- merged_data[-c(5:43)]
+
+#####Evang Sample stm#####
+#Cleaning the Data for stm 
+processed_merged_data1 <- textProcessor(merged_data1$full_text, metadata=merged_data1)
+
+out_merged_data1 <- prepDocuments(processed_merged_data1$documents, processed_merged_data1$vocab, processed_merged_data1$meta) 
+
+docs_merged_data1 <- out_merged_data1$documents
+
+vocab_merged_data1 <- out_merged_data1$vocab
+
+meta_merged_data1 <- out_merged_data1$meta
+
+#Let's find the optimal K, this will take a long time, be prepared
+tweet_merged_data1 <- searchK(out_merged_data1$documents, out_merged_data1$vocab, K = c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100),
+                                  data=out_merged_data1$meta)
+
+tweet_merged_data1 #looking for highest exclus and highest (lowest -) semcoh 
+
+#The best fit is 100 topics 
+numberoftopics_anes_evang <- stm(out_anes_evang$documents, out_anes_evang$vocab, 
+                                 K=100, 
+                                 prevalence = ~ libcon3, 
+                                 max.em.its=40, 
+                                 data = out_anes_evang$meta, 
+                                 seed=09092022) 
+
+#Let's focus on FREX
+#words used in topics
+labelTopics(numberoftopics_anes_evang, c(1:100), frexweight = 0.5, n = 15) 
+
+numberoftopics_labels_anes_evang <- labelTopics(numberoftopics_anes_evang, n = 10)
+numberoftopics_topwords_anes_evang <- data.frame("features" = t(numberoftopics_labels_anes_evang$frex))
+colnames(numberoftopics_topwords_anes_evang) <- paste("Topics", c(1:100))
+
+#Prepare for Comparisons 
+out_anes_evang$meta$libcon3 <- as.factor(out_anes_evang$meta$libcon3) 
+
+numberoftopics_anes_evang_1 <- stm(out_anes_evang$documents, out_anes_evang$vocab, 
+                                   K=100, 
+                                   prevalence = ~ libcon3,
+                                   content = ~libcon3, 
+                                   max.em.its=75, 
+                                   data = out_anes_evang$meta, 
+                                   seed=09092022) 
+
+prep_anes_evang <- estimateEffect(formula = 1:100 ~ libcon3, stmobj = numberoftopics_anes_evang_1, meta = out_anes_evang$meta, uncertainty = "Global") 
+
+#Compare Liberal and Middle of the Road 
+plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(1:100), 
+                    model = numberoftopics_anes_evang_1, method = "difference", 
+                    cov.value1 = "Liberal", cov.value2 = "Middle of the Road", 
+                    xlab = "Liberal ... Middle of the Road",
+                    main = "Most Important Problem to Evangelicals",
+                    xlim = c(-.05, .05), labeltype = "custom")
+#Difference between Liberal and Middle of the Road at Topics: 30, 
+plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(30), 
+                    model = numberoftopics_anes_evang_1, method = "difference", 
+                    cov.value1 = "Liberal", cov.value2 = "Middle of the Road", 
+                    xlab = "Liberal ... Middle of the Road",
+                    main = "Most Important Problem to Evangelicals",
+                    xlim = c(-.1, .1), labeltype = "custom",
+                    custom.labels = c('Topic 30: Problems because of CovVID - lose job, schools closing, children, mental health'))
+
+
+#Compare Liberal and Conservative
+plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(1:100), 
+                    model = numberoftopics_anes_evang_1, method = "difference", 
+                    cov.value1 = "Liberal", cov.value2 = "Conservative", 
+                    xlab = "Liberal ... Conservative",
+                    main = "Most Important Problem to Evangelicals",
+                    xlim = c(-.05, .05), labeltype = "custom")
+#Difference between Liberal Conservative at Topics: 28, 30, 35, 38, 39, 45, 63, 89, 96
+plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(28, 30, 35, 38, 39, 45, 63, 89, 96), 
+                    model = numberoftopics_anes_evang_1, method = "difference", 
+                    cov.value1 = "Liberal", cov.value2 = "Conservative", 
+                    xlab = "Liberal ... Conservative",
+                    main = "Most Important Problem to Evangelicals",
+                    xlim = c(-.1, .1), labeltype = "custom",
+                    custom.labels = c('Topic 28', 'Topic 30', 'Topic 35', 'Topic 38', 'Topic 39', 'Topic 45', 'Topic 63', 'Topic 89', 'Topic 96'))
+
+
+#Compare Middle of the Road and Conservative
+plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(1:100), 
+                    model = numberoftopics_anes_evang_1, method = "difference", 
+                    cov.value1 = "Middle of the Road", cov.value2 = "Conservative", 
+                    xlab = "Middle of the Road ... Conservative",
+                    main = "Most Important Problem to Evangelicals",
+                    xlim = c(-.05, .05), labeltype = "custom")
+#Difference between Middle of the Road and Conservative at Topics: 89
+plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(89), 
+                    model = numberoftopics_anes_evang_1, method = "difference", 
+                    cov.value1 = "Middle of the Road", cov.value2 = "Conservative", 
+                    xlab = "Middle of the Road ... Conservative",
+                    main = "Most Important Problem to Evangelicals",
+                    xlim = c(-.05, .05), labeltype = "custom",
+                    custom.labels = c('Topic 89: Corona Virus is real and has consequences'))
+
+summary(prep_anes_evang)
+
+#Insert text examples
+anes_evang.fulltext <- anes_evang$mostimpanswer
+
+#Topics: 28, 30, 35, 38, 39, 45, 63, 89, 96
+numberoftopics_topwords_anes_evang[28] #Disregard / Science
+numberoftopics_topwords_anes_evang[30] #Problems because of CovVID - lose job, schools closing, children, mental health
+numberoftopics_topwords_anes_evang[35]
+numberoftopics_topwords_anes_evang[38]
+numberoftopics_topwords_anes_evang[39]
+numberoftopics_topwords_anes_evang[45]
+numberoftopics_topwords_anes_evang[63]
+numberoftopics_topwords_anes_evang[89] #Corona Virus is real and has consequences
+numberoftopics_topwords_anes_evang[96]
+
+#wordcloud
+cloud(numberoftopics_anes_evang, topic = 28, min.freq=5) #
+cloud(numberoftopics_anes_evang, topic = 30, min.freq=5) #
+cloud(numberoftopics_anes_evang, topic = 35, min.freq=5) #
+cloud(numberoftopics_anes_evang, topic = 38, min.freq=5) #
+cloud(numberoftopics_anes_evang, topic = 39, min.freq=5) #
+cloud(numberoftopics_anes_evang, topic = 45, min.freq=5) #
+cloud(numberoftopics_anes_evang, topic = 63, min.freq=5) #
+cloud(numberoftopics_anes_evang, topic = 89, min.freq=5) #
+cloud(numberoftopics_anes_evang, topic = 96, min.freq=5) #
+
+#Choosing the Quotes to use
+anes_evang_firstdocs.28 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[28]]
+anes_evang_firstdocs.30 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[30]]
+anes_evang_firstdocs.35 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[35]]
+anes_evang_firstdocs.38 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[38]]
+anes_evang_firstdocs.39 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[39]]
+anes_evang_firstdocs.45 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[45]]
+anes_evang_firstdocs.63 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[63]]
+anes_evang_firstdocs.89 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[89]]
+anes_evang_firstdocs.96 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[96]]
+
+#Displaying the Quotations
+plotQuote(anes_evang_firstdocs.28, main="Top Documents")
+plotQuote(anes_evang_firstdocs.30, main="Top Documents")
+plotQuote(anes_evang_firstdocs.35, main="Top Documents")
+plotQuote(anes_evang_firstdocs.38, main="Top Documents") 
+plotQuote(anes_evang_firstdocs.39, main="Top Documents") 
+plotQuote(anes_evang_firstdocs.45, main="Top Documents") 
+plotQuote(anes_evang_firstdocs.63, main="Top Documents")
+plotQuote(anes_evang_firstdocs.89, main="Top Documents") 
+plotQuote(anes_evang_firstdocs.96, main="Top Documents") 
+
 
 
