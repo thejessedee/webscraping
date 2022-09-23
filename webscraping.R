@@ -218,6 +218,7 @@ ggplot(dem_features, aes(x = feature, y = frequency)) +
 #We need to remove columns that have all the same answer. 
 #Keep those columns you need. 
 merged_data1 <- merged_data[-c(5:43)]
+merged_data1 <- subset(merged_data1, party=='D' | party=='R')
 
 #####Evang Sample stm#####
 #Cleaning the Data for stm 
@@ -238,132 +239,126 @@ tweet_merged_data1 <- searchK(out_merged_data1$documents, out_merged_data1$vocab
 tweet_merged_data1 #looking for highest exclus and highest (lowest -) semcoh 
 
 #The best fit is 100 topics 
-numberoftopics_anes_evang <- stm(out_anes_evang$documents, out_anes_evang$vocab, 
-                                 K=100, 
-                                 prevalence = ~ libcon3, 
+numberoftopics_merged_data1 <- stm(out_merged_data1$documents, out_merged_data1$vocab, 
+                                 K=20, 
+                                 prevalence = ~ party, 
                                  max.em.its=40, 
-                                 data = out_anes_evang$meta, 
-                                 seed=09092022) 
+                                 data = out_merged_data1$meta, 
+                                 seed=09222022) 
 
 #Let's focus on FREX
 #words used in topics
-labelTopics(numberoftopics_anes_evang, c(1:100), frexweight = 0.5, n = 15) 
+labelTopics(numberoftopics_merged_data1, c(1:20), frexweight = 0.5, n = 15) 
 
-numberoftopics_labels_anes_evang <- labelTopics(numberoftopics_anes_evang, n = 10)
-numberoftopics_topwords_anes_evang <- data.frame("features" = t(numberoftopics_labels_anes_evang$frex))
-colnames(numberoftopics_topwords_anes_evang) <- paste("Topics", c(1:100))
+numberoftopics_labels_merged_data1 <- labelTopics(numberoftopics_merged_data1, n = 10)
+numberoftopics_topwords_merged_data1 <- data.frame("features" = t(numberoftopics_labels_merged_data1$frex))
+colnames(numberoftopics_topwords_merged_data1) <- paste("Topics", c(1:20))
 
 #Prepare for Comparisons 
-out_anes_evang$meta$libcon3 <- as.factor(out_anes_evang$meta$libcon3) 
+out_merged_data1$meta$party <- as.factor(out_merged_data1$meta$party) 
 
-numberoftopics_anes_evang_1 <- stm(out_anes_evang$documents, out_anes_evang$vocab, 
-                                   K=100, 
-                                   prevalence = ~ libcon3,
-                                   content = ~libcon3, 
+numberoftopics_merged_data2 <- stm(out_merged_data1$documents, out_merged_data1$vocab, 
+                                   K=20, 
+                                   prevalence = ~ party,
+                                   content = ~party, 
                                    max.em.its=75, 
-                                   data = out_anes_evang$meta, 
-                                   seed=09092022) 
+                                   data = out_merged_data1$meta, 
+                                   seed=09222022) 
 
-prep_anes_evang <- estimateEffect(formula = 1:100 ~ libcon3, stmobj = numberoftopics_anes_evang_1, meta = out_anes_evang$meta, uncertainty = "Global") 
+prep_merged_data2 <- estimateEffect(formula = 1:20 ~ party, stmobj = numberoftopics_merged_data2, meta = out_merged_data1$meta, uncertainty = "Global") 
 
 #Compare Liberal and Middle of the Road 
-plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(1:100), 
-                    model = numberoftopics_anes_evang_1, method = "difference", 
-                    cov.value1 = "Liberal", cov.value2 = "Middle of the Road", 
-                    xlab = "Liberal ... Middle of the Road",
-                    main = "Most Important Problem to Evangelicals",
-                    xlim = c(-.05, .05), labeltype = "custom")
+plot.estimateEffect(prep_merged_data2, covariate = "party", topics = c(1:20), 
+                    model = numberoftopics_merged_data2, method = "difference", 
+                    cov.value1 = "D", cov.value2 = "R", 
+                    xlab = "Democrat ... Republican",
+                    main = "What are we tweeting about?",
+                    xlim = c(-.1, .1), labeltype = "custom")
 #Difference between Liberal and Middle of the Road at Topics: 30, 
-plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(30), 
-                    model = numberoftopics_anes_evang_1, method = "difference", 
-                    cov.value1 = "Liberal", cov.value2 = "Middle of the Road", 
-                    xlab = "Liberal ... Middle of the Road",
-                    main = "Most Important Problem to Evangelicals",
-                    xlim = c(-.1, .1), labeltype = "custom",
-                    custom.labels = c('Topic 30: Problems because of CovVID - lose job, schools closing, children, mental health'))
+plot.estimateEffect(prep_merged_data2, covariate = "party", topics = c(2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 15, 17, 18, 19, 20), 
+                    model = numberoftopics_merged_data2, method = "difference", 
+                    cov.value1 = "D", cov.value2 = "R", 
+                    xlab = "Democrat ... Republican",
+                    main = "What are we tweeting about?",
+                    xlim = c(-.06, .06), labeltype = "custom",
+                    custom.labels = c('Topic 30'))
 
 
-#Compare Liberal and Conservative
-plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(1:100), 
-                    model = numberoftopics_anes_evang_1, method = "difference", 
-                    cov.value1 = "Liberal", cov.value2 = "Conservative", 
-                    xlab = "Liberal ... Conservative",
-                    main = "Most Important Problem to Evangelicals",
-                    xlim = c(-.05, .05), labeltype = "custom")
-#Difference between Liberal Conservative at Topics: 28, 30, 35, 38, 39, 45, 63, 89, 96
-plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(28, 30, 35, 38, 39, 45, 63, 89, 96), 
-                    model = numberoftopics_anes_evang_1, method = "difference", 
-                    cov.value1 = "Liberal", cov.value2 = "Conservative", 
-                    xlab = "Liberal ... Conservative",
-                    main = "Most Important Problem to Evangelicals",
-                    xlim = c(-.1, .1), labeltype = "custom",
-                    custom.labels = c('Topic 28', 'Topic 30', 'Topic 35', 'Topic 38', 'Topic 39', 'Topic 45', 'Topic 63', 'Topic 89', 'Topic 96'))
 
-
-#Compare Middle of the Road and Conservative
-plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(1:100), 
-                    model = numberoftopics_anes_evang_1, method = "difference", 
-                    cov.value1 = "Middle of the Road", cov.value2 = "Conservative", 
-                    xlab = "Middle of the Road ... Conservative",
-                    main = "Most Important Problem to Evangelicals",
-                    xlim = c(-.05, .05), labeltype = "custom")
-#Difference between Middle of the Road and Conservative at Topics: 89
-plot.estimateEffect(prep_anes_evang, covariate = "libcon3", topics = c(89), 
-                    model = numberoftopics_anes_evang_1, method = "difference", 
-                    cov.value1 = "Middle of the Road", cov.value2 = "Conservative", 
-                    xlab = "Middle of the Road ... Conservative",
-                    main = "Most Important Problem to Evangelicals",
-                    xlim = c(-.05, .05), labeltype = "custom",
-                    custom.labels = c('Topic 89: Corona Virus is real and has consequences'))
-
-summary(prep_anes_evang)
+summary(prep_merged_data2)
 
 #Insert text examples
-anes_evang.fulltext <- anes_evang$mostimpanswer
+merged_data1.fulltext <- merged_data1$meta$full_text
 
-#Topics: 28, 30, 35, 38, 39, 45, 63, 89, 96
-numberoftopics_topwords_anes_evang[28] #Disregard / Science
-numberoftopics_topwords_anes_evang[30] #Problems because of CovVID - lose job, schools closing, children, mental health
-numberoftopics_topwords_anes_evang[35]
-numberoftopics_topwords_anes_evang[38]
-numberoftopics_topwords_anes_evang[39]
-numberoftopics_topwords_anes_evang[45]
-numberoftopics_topwords_anes_evang[63]
-numberoftopics_topwords_anes_evang[89] #Corona Virus is real and has consequences
-numberoftopics_topwords_anes_evang[96]
+#Topics: 2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 15, 17, 18, 19, 20
+numberoftopics_topwords_merged_data1[2] #Vietnam / POW and MIAs 
+numberoftopics_topwords_merged_data1[3] #
+numberoftopics_topwords_merged_data1[4]
+numberoftopics_topwords_merged_data1[5]
+numberoftopics_topwords_merged_data1[6]
+numberoftopics_topwords_merged_data1[7]
+numberoftopics_topwords_merged_data1[8]
+numberoftopics_topwords_merged_data1[9] 
+numberoftopics_topwords_merged_data1[13]
+numberoftopics_topwords_merged_data1[14]
+numberoftopics_topwords_merged_data1[15]
+numberoftopics_topwords_merged_data1[17]
+numberoftopics_topwords_merged_data1[18]
+numberoftopics_topwords_merged_data1[19]
+numberoftopics_topwords_merged_data1[20]
 
 #wordcloud
-cloud(numberoftopics_anes_evang, topic = 28, min.freq=5) #
-cloud(numberoftopics_anes_evang, topic = 30, min.freq=5) #
-cloud(numberoftopics_anes_evang, topic = 35, min.freq=5) #
-cloud(numberoftopics_anes_evang, topic = 38, min.freq=5) #
-cloud(numberoftopics_anes_evang, topic = 39, min.freq=5) #
-cloud(numberoftopics_anes_evang, topic = 45, min.freq=5) #
-cloud(numberoftopics_anes_evang, topic = 63, min.freq=5) #
-cloud(numberoftopics_anes_evang, topic = 89, min.freq=5) #
-cloud(numberoftopics_anes_evang, topic = 96, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 2, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 3, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 4, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 5, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 6, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 7, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 8, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 9, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 13, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 14, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 15, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 17, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 18, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 19, min.freq=5) #
+cloud(numberoftopics_merged_data1, topic = 20, min.freq=5) #
+
 
 #Choosing the Quotes to use
-anes_evang_firstdocs.28 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[28]]
-anes_evang_firstdocs.30 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[30]]
-anes_evang_firstdocs.35 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[35]]
-anes_evang_firstdocs.38 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[38]]
-anes_evang_firstdocs.39 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[39]]
-anes_evang_firstdocs.45 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[45]]
-anes_evang_firstdocs.63 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[63]]
-anes_evang_firstdocs.89 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[89]]
-anes_evang_firstdocs.96 <- findThoughts(numberoftopics_anes_evang, texts = out_anes_evang$meta$mostimpanswer, n = 3)$docs[[96]]
+merged_data1_firstdocs.2 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[2]]
+merged_data1_firstdocs.3 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[3]]
+merged_data1_firstdocs.4 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[4]]
+merged_data1_firstdocs.5 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[5]]
+merged_data1_firstdocs.6 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[6]]
+merged_data1_firstdocs.7 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[7]]
+merged_data1_firstdocs.8 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[8]]
+merged_data1_firstdocs.9 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[9]]
+merged_data1_firstdocs.13 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[13]]
+merged_data1_firstdocs.14 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[14]]
+merged_data1_firstdocs.15 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[15]]
+merged_data1_firstdocs.17 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[17]]
+merged_data1_firstdocs.18 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[18]]
+merged_data1_firstdocs.19 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[19]]
+merged_data1_firstdocs.20 <- findThoughts(numberoftopics_merged_data1, texts = out_merged_data1$meta$fulltext, n = 3)$docs[[20]]
 
 #Displaying the Quotations
-plotQuote(anes_evang_firstdocs.28, main="Top Documents")
-plotQuote(anes_evang_firstdocs.30, main="Top Documents")
-plotQuote(anes_evang_firstdocs.35, main="Top Documents")
-plotQuote(anes_evang_firstdocs.38, main="Top Documents") 
-plotQuote(anes_evang_firstdocs.39, main="Top Documents") 
-plotQuote(anes_evang_firstdocs.45, main="Top Documents") 
-plotQuote(anes_evang_firstdocs.63, main="Top Documents")
-plotQuote(anes_evang_firstdocs.89, main="Top Documents") 
-plotQuote(anes_evang_firstdocs.96, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.2, main="Top Documents")
+plotQuote(merged_data1_firstdocs.3, main="Top Documents")
+plotQuote(merged_data1_firstdocs.4, main="Top Documents")
+plotQuote(merged_data1_firstdocs.5, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.6, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.7, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.8, main="Top Documents")
+plotQuote(merged_data1_firstdocs.9, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.13, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.14, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.15, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.17, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.18, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.19, main="Top Documents") 
+plotQuote(merged_data1_firstdocs.20, main="Top Documents") 
+
 
 
 
